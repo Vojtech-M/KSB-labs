@@ -1,0 +1,143 @@
+========Konfigurace Routeru R1 ========
+IP a DHCP
+
+enable
+configure terminal
+logging synchronous
+no ip domain lookup
+
+interface FastEthernet0/1
+ ip address 192.168.66.254 255.255.255.0
+ no shutdown
+ exit
+
+ip dhcp excluded-address 192.168.66.254
+ip dhcp pool MOJE_VLAN
+ network 192.168.66.0 255.255.255.0
+ default-router 192.168.66.254
+ exit
+
+
+
+========Získání IP adresy na PC - vlevo a PC - vpravo ========
+
+sudo dhclient -r enp4s0   # Uvolní starou adresu (místo enp4s0 použij název tvého NIC2 rozhraní)
+sudo dhclient enp4s0      # Požádá DHCP server o novou adresu
+
+Zkontrolujeme tu adresu 
+
+ip a
+
+ip r
+
+
+
+=====Test Port Security se špatnou MAC adresou na Fa0/6=========
+
+enable
+configure terminal
+interface FastEthernet0/6
+ switchport mode access
+ switchport port-security
+ switchport port-security mac-address 0001.0203.0405
+ switchport port-security violation shutdown
+ exit
+
+
+Pak zkusíme udělat ping 
+
+ping 192.168.66.X   # (Místo X zadej IP adresu PC-vlevo)
+
+
+========Port Security s dynamickým učením (sticky) na Fa0/5======
+
+interface FastEthernet0/5
+ switchport mode access
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ exit
+
+pak to otestujeme 
+
+ping 192.168.66.X
+
+
+======  Útok falešným DHCP serverem (DHCP Spoofing)======
+
+POUZE NA PC-VLEVO 
+
+sudo dhclient -r enp4s0 && sudo dhclient enp4s0
+ip r
+
+
+
+
+====== Zabezpečení pomocí DHCP Snooping=======
+
+
+configure terminal
+ip dhcp snooping
+no ip dhcp snooping information option
+ip dhcp snooping vlan 1
+
+interface FastEthernet0/1
+ ip dhcp snooping trust
+ ip dhcp snooping limit rate 50
+ exit
+
+
+test na pc vlevo 
+
+sudo dhclient -r enp4s0 && sudo dhclient enp4s0
+ip a
+
+
+
+
+====== Dynamic ARP Inspection (DAI) & IP Source Guard======
+na switchi zadat 
+
+configure terminal
+ip arp inspection vlan 1
+
+interface FastEthernet0/1
+ ip arp inspection trust
+ exit
+
+interface FastEthernet0/5
+ ip verify source port-security
+ exit
+
+
+pak test 
+
+sudo ip addr flush dev enp4s0
+sudo ip addr add 192.168.66.66/24 dev enp4s0
+
+
+
+ping 192.168.66.X
+
+
+
+
+
+
+====== Úklid nakonec     
+Na routeru R1
+reload
+
+Na sietchi S4
+reload
+
+
+
+
+
+
+
+
+
+
