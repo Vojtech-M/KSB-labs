@@ -1,5 +1,8 @@
-========Konfigurace Routeru R1 ========
-IP a DHCP
+================================================================================
+B0M32KSB – Laboratorní úloha č. 1: Zabezpečení přepínačů pomocí Port Security
+================================================================================
+
+======== 1. Konfigurace Routeru R1 (IP a DHCP) ========
 
 enable
 configure terminal
@@ -18,21 +21,20 @@ ip dhcp pool MOJE_VLAN
  exit
 
 
-
-========Získání IP adresy na PC - vlevo a PC - vpravo ========
+======== 2. Získání IP adresy na PC - vlevo a PC - vpravo (CHECKPOINT 1) ========
 
 sudo dhclient -r enp4s0   # Uvolní starou adresu (místo enp4s0 použij název tvého NIC2 rozhraní)
 sudo dhclient enp4s0      # Požádá DHCP server o novou adresu
 
-Zkontrolujeme tu adresu 
-
+# Kontrola na PC:
 ip a
-
 ip r
 
+# Kontrola na Routeru R1:
+show ip dhcp binding
 
 
-=====Test Port Security se špatnou MAC adresou na Fa0/6=========
+======== 3. Test Port Security se špatnou MAC adresou na Fa0/6 ========
 
 enable
 configure terminal
@@ -43,14 +45,15 @@ interface FastEthernet0/6
  switchport port-security violation shutdown
  exit
 
-
-Pak zkusíme udělat ping 
-
+# Test z PC-vpravo (přepojeného do Fa0/6):
 ping 192.168.66.X   # (Místo X zadej IP adresu PC-vlevo)
 
 
-========Port Security s dynamickým učením (sticky) na Fa0/5======
+======== 4. Port Security s dynamickým učením (sticky) na Fa0/5 (CHECKPOINT 2) ========
 
+# (Kabel z PC-vpravo přepojen zpět do Fa0/5)
+enable
+configure terminal
 interface FastEthernet0/5
  switchport mode access
  switchport port-security
@@ -59,24 +62,27 @@ interface FastEthernet0/5
  switchport port-security violation shutdown
  exit
 
-pak to otestujeme 
-
+# Test z PC-vpravo:
 ping 192.168.66.X
 
+# Kontrola pro vyučujícího na Switchi:
+show port-security interface FastEthernet0/5
 
-======  Útok falešným DHCP serverem (DHCP Spoofing)======
 
-POUZE NA PC-VLEVO 
+======== 5. Útok falešným DHCP serverem (DHCP Spoofing) ========
 
+# 1. Odpoj kabel z R1 (port Fa0/1).
+# 2. Na PC-vpravo (Webmin 127.0.0.1:10000) nastav rogue DHCP (rozsah např. 192.168.66.10 - .253, brána = IP útočníka) a zapni ho na NIC2.
+
+# 3. POUZE NA PC-VLEVO obnov adresu:
 sudo dhclient -r enp4s0 && sudo dhclient enp4s0
 ip r
 
 
+======== 6. Zabezpečení pomocí DHCP Snooping (CHECKPOINT 3) ========
 
-
-====== Zabezpečení pomocí DHCP Snooping=======
-
-
+# (Znovu připoj kabel z Routeru R1 do portu Fa0/1)
+enable
 configure terminal
 ip dhcp snooping
 no ip dhcp snooping information option
@@ -87,18 +93,21 @@ interface FastEthernet0/1
  ip dhcp snooping limit rate 50
  exit
 
-
-test na pc vlevo 
-
+# Test na PC-vlevo:
 sudo dhclient -r enp4s0 && sudo dhclient enp4s0
 ip a
+ip r
+
+# Kontrola pro vyučujícího:
+# Na Switchi:
+show ip dhcp snooping binding
+# Na Routeru R1:
+show ip dhcp binding
 
 
+======== 7. Dynamic ARP Inspection (DAI) & IP Source Guard (CHECKPOINT 4) ========
 
-
-====== Dynamic ARP Inspection (DAI) & IP Source Guard======
-na switchi zadat 
-
+enable
 configure terminal
 ip arp inspection vlan 1
 
@@ -110,34 +119,23 @@ interface FastEthernet0/5
  ip verify source port-security
  exit
 
-
-pak test 
-
+# Test podvržení IP na PC-vpravo:
 sudo ip addr flush dev enp4s0
 sudo ip addr add 192.168.66.66/24 dev enp4s0
-
-
-
 ping 192.168.66.X
 
+# Kontrola pro vyučujícího na Switchi:
+show ip arp inspection vlan 1
 
 
+======== 8. Úklid nakonec ========
 
-
-
-====== Úklid nakonec     
-Na routeru R1
+# Na routeru R1:
 reload
+# (Na dotaz Save? napiš: no)
 
-Na sietchi S4
+# Na switchi SW4:
 reload
+# (Na dotaz Save? napiš: no)
 
-
-
-
-
-
-
-
-
-
+# Restartuj obě PC.
